@@ -1,35 +1,47 @@
-import {Affix, Button, createStyles, rem, Transition} from '@mantine/core'
-import {useWindowScroll} from '@mantine/hooks'
-import {IconArrowUp} from '@tabler/icons-react'
+'use client'
 
-const useStyles = createStyles((theme) => ({
-  backToTop: {
-    bottom: '12px',
-    position: 'fixed',
-    right: '12px',
-    zIndex: 100
-  }
-}))
+import {IconArrowUp} from '@tabler/icons-react'
+import {useEffect, useState} from 'react'
 
 /**
- * Back To Top component.
+ * The back to top component.
  */
 export default function BackToTop() {
-  const [scroll, scrollTo] = useWindowScroll()
+  const [showButton, setShowButton] = useState(false)
+  const buttonText = 'Go back to the top of the page'
 
-  return (
-    <Affix position={{bottom: rem(20), right: rem(20)}}>
-      <Transition transition="slide-up" mounted={scroll.y > 0}>
-        {(transitionStyles) => (
-          <Button
-            leftIcon={<IconArrowUp size="1rem" />}
-            style={transitionStyles}
-            onClick={() => scrollTo({y: 0})}
-          >
-            Scroll to top
-          </Button>
-        )}
-      </Transition>
-    </Affix>
-  )
+  /**
+   * Effect for showing the back to top button.
+   */
+  useEffect(() => {
+    // Scroll event handler.
+    const scrollHandler = () => {
+      setShowButton(window.scrollY > 200)
+    }
+
+    // Add event listener.
+    window.addEventListener('scroll', scrollHandler)
+
+    // Cleanup event listener.
+    return () => window.removeEventListener('scroll', scrollHandler)
+  }, [])
+
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    })
+  }
+
+  return showButton ? (
+    <button
+      aria-label={buttonText}
+      className="button fixed bottom-8 right-6"
+      onClick={scrollToTop}
+      title={buttonText}
+    >
+      <IconArrowUp height="32" width="32" />
+      <span className="sr-only">{buttonText}</span>
+    </button>
+  ) : null
 }

@@ -1,51 +1,30 @@
-import {createStyles} from '@mantine/core'
-import {IconBrandGithub} from '@tabler/icons-react'
-import config from '~/lib/config'
-
-const useStyles = createStyles((theme) => ({
-  footer: {
-    display: 'flex',
-    flexDirection: 'column',
-    fontFamily: theme.fontFamilyMonospace,
-    fontSize: theme.fontSizes.sm,
-    textAlign: 'center',
-
-    p: {
-      marginBottom: 0
-    },
-
-    a: {
-      color: theme.colorScheme === 'dark' ? theme.colors.dark[0] : theme.black,
-
-      '&:hover': {
-        textDecoration: 'none'
-      }
-    }
-  }
-}))
+import config from '@/lib/config'
 
 /**
- * Footer component.
+ * The footer component.
  */
 export default function Footer() {
-  const {classes} = useStyles()
   return (
-    <footer className={classes.footer}>
+    <footer className="text-center font-mono text-xs">
       <p>
-        website by{' '}
-        <a href={config.authorUrl} rel="author">
-          {config.siteAuthor}
-        </a>
-      </p>
-      <p>
+        Created and maintained by{' '}
         <a
-          aria-label="View source code on GitHub"
+          aria-label={`visit ${config.siteAuthor} website`}
+          href={config.authorUrl}
+          rel="author"
+        >
+          {config.siteAuthor}
+        </a>{' '}
+        (
+        <a
+          aria-label="view source code on github"
           href={config.githubUrl}
           rel="noopener noreferrer"
           target="_blank"
         >
-          <IconBrandGithub />
+          view source code
         </a>
+        )
       </p>
     </footer>
   )

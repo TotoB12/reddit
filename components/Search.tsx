@@ -1,121 +1,247 @@
-import {
-  Badge,
-  Group,
-  MultiSelect,
-  SelectItem,
-  SelectItemProps,
-  createStyles
-} from '@mantine/core'
-import {useDebouncedValue} from '@mantine/hooks'
-import {forwardRef} from 'react'
-import useSWR from 'swr'
-import {useRedditContext} from '~/components/RedditProvider'
-import {fetcher} from '~/lib/helpers'
-import Settings from './Settings'
+'use client'
 
-interface ItemProps extends SelectItemProps {
-  over_18: boolean
-}
-
-const useStyles = createStyles(() => ({
-  searchBar: {
-    flexBasis: '100%'
-  }
-}))
+import {fetchSearchResults} from '@/lib/actions'
+import config from '@/lib/config'
+import {RedditSearchResponse} from '@/lib/types'
+import Link from 'next/link'
+import {usePathname, useRouter} from 'next/navigation'
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
 
 /**
- * Dropdown item component.
+ * Debounce a callback.
  */
-const AutoCompleteItem = forwardRef<HTMLDivElement, ItemProps>(
-  ({value, over_18, ...others}: ItemProps, ref) => (
-    <div ref={ref} {...others}>
-      <Group noWrap position="apart">
-        {value}
-        {over_18 && <Badge color="red">NSFW</Badge>}
-      </Group>
-    </div>
-  )
-)
-AutoCompleteItem.displayName = 'AutoCompleteItem'
+function useDebounce(callback: () => void, delay: number, dependencies: any[]) {
+  // Effect for the debounced callback.
+  useEffect(() => {
+    // Setup the timeout handler.
+    const handler = setTimeout(() => {
+      // Call the callback.
+      callback()
+    }, delay)
 
-/**
- * Stores items selected by multi select.
- */
-let storedData: Array<SelectItem> = [{label: 'gif', value: 'gif'}]
-
-/**
- * Store values selected by multi select.
- */
-function storeValue(values: Array<string>): void {
-  storedData = values.map((value) => ({value, label: value}))
+    // Cleanup the timeout handler.
+    return () => clearTimeout(handler)
+  }, [delay, ...dependencies]) // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 /**
- * Search component.
- *
- * @see https://mantine.dev/core/multi-select/
+ * The search component.
  */
 export default function Search() {
-  const {setSubreddit, searchInput, setSearchInput, subReddit} =
-    useRedditContext()
-  const {classes} = useStyles()
-  const [debounced] = useDebouncedValue(searchInput, 400)
-  const {data: beforeSearch} = useSWR(`/api/preSearch?limit=5`, fetcher)
-  const {data: results} = useSWR(`/api/search?term=${debounced}`, fetcher, {
-    revalidateIfStale: true,
-    revalidateOnFocus: false,
-    revalidateOnMount: false
-  })
+  // Setup the router and path.
+  const router = useRouter()
+  const pathName = usePathname()
+
+  // Setup the initial subreddit and input ref.
+  const initialSubreddit = useMemo(
+    () => pathName.split('/r/')[1] || '',
+    [pathName]
+  )
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // Setup component state.
+  const [query, setQuery] = useState(initialSubreddit)
+  const [sort, setSort] = useState(config.redditApi.sort)
+  const [results, setResults] = useState<RedditSearchResponse>({})
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+  const [selectedIndex, setSelectedIndex] = useState(0)
 
   /**
-   * Handle search input change.
+   * Search input field handler.
    */
-  function handleSearch(string: string) {
-    setSearchInput(string)
-  }
+  const searchInputHandler = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      // Get the input value.
+      let inputValue = e.target.value.trim()
+
+      // Validate and sanitize the input value.
+      inputValue = inputValue?.replace(/\W/g, '')
+
+      // Set component state.
+      setQuery(inputValue)
+      setSelectedIndex(0)
+      setIsDrawerOpen(inputValue !== '')
+    },
+    []
+  )
 
   /**
-   * Get item data to populate typeahead and combine with already selected items.
+   * Sort select field handler.
    */
-  function formatItems(i: {value: string; label: string}) {
-    return {value: i.value, label: i.value}
-  }
+  const sortSelectHandler = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      // Get the sort value.
+      let sortValue = e.target.value.trim()
+
+      // Validate and sanitize the sort value.
+      sortValue = sortValue?.replace(/\W/g, '')
+
+      // Set component state.
+      setSort(sortValue)
+
+      // If the sort value hasn't changed or there's no query, return.
+      if (sort === sortValue || query.length < 2) return
+
+      // Push the route with the new sort value.
+      router.push(`${pathName}?sort=${sortValue}`)
+    },
+    [query, sort, pathName, router]
+  )
 
   /**
-   * Get data for typeahead.
+   * Setup the search query.
    */
-  function getData(): Array<string | SelectItem> {
-    if (results) {
-      return [...storedData, ...results.map(formatItems)]
-    } else if (beforeSearch) {
-      return [...storedData, ...beforeSearch.map(formatItems)]
-    } else {
-      return ['Empty']
+  const searchQuery = useCallback(() => {
+    // No query? Bail.
+    if (query.length < 2) return
+
+    // Fetch and set the search results.
+    const fetchAndSetResults = async () => {
+      const results = await fetchSearchResults(query)
+      setResults(results)
     }
-  }
+
+    // Call the fetch and resolve the promise.
+    fetchAndSetResults().catch((error) => {
+      console.error('Failed to fetch search results:', error)
+    })
+  }, [query, setResults])
+
+  // Debounce the search query.
+  useDebounce(searchQuery, 500, [query])
+
+  /**
+   * Reset the search.
+   */
+  const resetSearch = useCallback(() => {
+    setQuery('')
+    setResults({})
+    setIsDrawerOpen(false)
+    setSelectedIndex(0)
+    setSort(config.redditApi.sort)
+  }, [])
+
+  /**
+   * Effect for handling keyboard events.
+   */
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // If the drawer is not open, return.
+      if (!isDrawerOpen) return
+
+      // Setup the item count.
+      const itemCount = results?.data?.children?.length ?? 0
+
+      // Handle the down arrow key event.
+      if (e.key === 'ArrowDown') {
+        // If the selected index is the last item, set the selected index to 0.
+        setSelectedIndex((prevIndex) => (prevIndex + 1) % itemCount)
+        e.preventDefault()
+
+        // Handle the up arrow key event.
+      } else if (e.key === 'ArrowUp') {
+        // If the selected index is the first item, set the selected index to the last item.
+        setSelectedIndex((prevIndex) => (prevIndex - 1 + itemCount) % itemCount)
+        e.preventDefault()
+
+        // Handle the enter key event.
+      } else if (e.key === 'Enter' && itemCount > 0) {
+        // Get the selected result.
+        const selectedResult = results?.data?.children[selectedIndex]
+
+        // If the selected result exists, push the route and reset the search.
+        if (selectedResult) {
+          router.push(`${selectedResult.data.url}?sort=${sort}`)
+          resetSearch()
+        }
+        e.preventDefault()
+      }
+    }
+
+    // Add the event listener.
+    window.addEventListener('keydown', handleKeyDown)
+
+    // Cleanup the event listener.
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isDrawerOpen, results, selectedIndex, router, sort, resetSearch])
+
+  /**
+   * Effect for setting the initial focus and query.
+   */
+  useEffect(() => {
+    // If the input ref doesn't exist, return.
+    if (!inputRef.current) return
+
+    // Focus the input field.
+    inputRef.current.focus()
+
+    // If the path is the root or there's no initial subreddit, reset the search.
+    if (pathName === '/' || !initialSubreddit) {
+      resetSearch()
+    } else {
+      setQuery(initialSubreddit)
+    }
+  }, [pathName, initialSubreddit, resetSearch])
 
   return (
-    <>
-      <MultiSelect
-        aria-label="Search sub-reddits"
-        className={classes.searchBar}
-        clearable
-        clearSearchOnBlur
-        clearSearchOnChange
-        data={getData()}
-        hoverOnSearchChange
-        nothingFound="No subs found. Try searching for something else."
-        onChange={(values) => {
-          storeValue(values)
-          setSubreddit(encodeURI(values.join('%2B')))
-          setSearchInput('')
-        }}
-        onSearchChange={handleSearch}
-        placeholder="Search and select sub-reddits"
-        searchable
-        searchValue={searchInput}
+    <div className="relative flex items-center">
+      <input
+        aria-label="search for subreddits"
+        autoCapitalize="none"
+        autoComplete="off"
+        autoCorrect="off"
+        spellCheck="false"
+        autoFocus
+        name="search"
+        onChange={searchInputHandler}
+        placeholder="Search subreddits"
+        ref={inputRef}
+        type="search"
+        value={query}
       />
-      <Settings />
-    </>
+
+      <div className="select-container">
+        <select
+          aria-label="sort posts"
+          onChange={sortSelectHandler}
+          value={sort}
+        >
+          <option value="hot">Hot</option>
+          <option value="new">New</option>
+          <option value="top">Top</option>
+          <option value="rising">Rising</option>
+        </select>
+      </div>
+
+      {isDrawerOpen && results && (
+        <ul className="absolute left-0 top-16 z-50 m-0 w-full list-none rounded-b bg-zinc-200 p-0 dark:bg-zinc-700">
+          {results?.data?.children?.map(
+            ({data}, index) =>
+              data.display_name && (
+                <li className="m-0 p-0" key={data.id}>
+                  <Link
+                    className={`m-0 flex items-center justify-start gap-2 p-1 hover:bg-zinc-300 hover:no-underline dark:hover:bg-zinc-800 ${selectedIndex === index ? 'bg-zinc-300 dark:bg-zinc-800' : ''}`}
+                    href={{
+                      pathname: data.url,
+                      query: {
+                        sort
+                      }
+                    }}
+                    onClick={resetSearch}
+                    prefetch={false}
+                  >
+                    <span className="ml-3">{data.display_name}</span>
+                    {data.over18 && (
+                      <span className="mt-1 font-mono text-xs font-extralight text-red-600">
+                        NSFW
+                      </span>
+                    )}
+                  </Link>
+                </li>
+              )
+          )}
+        </ul>
+      )}
+    </div>
   )
 }

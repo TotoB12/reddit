@@ -2,7 +2,7 @@
   "name": "@gregrickaby/viewer-for-reddit",
   "private": true,
   "description": "Anonymously browse Reddit",
-  "version": "3.8.0",
+  "version": "5.2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/gregrickaby/viewer-for-reddit.git"
@@ -15,39 +15,39 @@
   "homepage": "https://github.com/gregrickaby/viewer-for-reddit#readme",
   "scripts": {
     "build": "next build",
-    "clean": "rimraf .next",
-    "dev": "npm run clean && next dev",
-    "format": "npx prettier '**/*.{js,jsx,ts,tsx,md,mdx,html,css,scss,json,yml}' --write || true",
-    "lint": "npm run format && npm run lint:js && npm run type-check",
-    "lint:js": "npx eslint '**/*.{js,ts,jsx,tsx}' --fix || true && next lint",
-    "postbuild": "next-sitemap",
-    "start": "next start",
-    "type-check": "tsc"
+    "dev": "rimraf .next && next dev",
+    "format": "prettier  '**/*.{tsx,js,ts,md,css,json,yml}' --ignore-path .gitignore --cache --write",
+    "lint": "npm run lint:css && npm run lint:js && next lint && tsc",
+    "lint:css": "stylelint '**/*.css' --ignore-path .gitignore --fix",
+    "lint:js": "eslint . --ignore-path .gitignore --fix",
+    "start": "next start"
   },
   "dependencies": {
-    "@emotion/react": "^11.11.1",
-    "@emotion/server": "^11.11.0",
-    "@mantine/core": "^6.0.17",
-    "@mantine/hooks": "^6.0.17",
-    "@mantine/next": "^6.0.17",
-    "@tabler/icons-react": "^2.30.0",
-    "hls.js": "^1.4.10",
-    "next": "^13.4.12",
+    "@tabler/icons-react": "^3.1.0",
+    "hls.js": "^1.5.7",
+    "html-entities": "^2.5.2",
+    "next": "^14.1.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-intersection-observer": "^9.5.2",
-    "swr": "^2.2.0"
+    "react-masonry-css": "^1.0.16"
   },
   "devDependencies": {
-    "@evilmartians/lefthook": "^1.4.8",
-    "@types/node": "^20.4.6",
-    "@types/react": "^18.2.18",
-    "eslint": "^8.46.0",
-    "eslint-config-next": "^13.4.12",
-    "eslint-config-prettier": "^8.10.0",
-    "next-sitemap": "^4.1.8",
-    "prettier": "^3.0.1",
-    "rimraf": "^5.0.1",
-    "typescript": "^5.1.6"
+    "@evilmartians/lefthook": "^1.6.7",
+    "@tailwindcss/typography": "^0.5.12",
+    "@types/node": "^20.12.2",
+    "@types/react": "^18.2.73",
+    "@types/react-dom": "^18.2.23",
+    "autoprefixer": "^10.4.19",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "14.1.4",
+    "eslint-config-prettier": "^9.1.0",
+    "postcss": "^8.4.38",
+    "prettier": "^3.2.5",
+    "prettier-plugin-tailwindcss": "^0.5.13",
+    "rimraf": "^5.0.5",
+    "stylelint": "^16.3.1",
+    "stylelint-config-standard": "^36.0.0",
+    "tailwindcss": "^3.4.3",
+    "typescript": "^5.4.3"
   }
 }
